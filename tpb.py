@@ -8,31 +8,50 @@ import json
 from subprocess import call
 import sys
 
+import os
+import time
+
+# Pickling the file, why not.
+import pickle
+
+from multiprocessing.dummy import Pool as ThreadPool
+
 PROXYSITE = "https://proxyspotting.in"
 PROXYLIST_URL = "https://thepiratebay-proxylist.org"
+
+TSIZE = 50
 
 def convert(queryString):
 	return queryString.replace(' ', '+')
 
-def chooseProxy():
-
-	global PROXYSITE
-
+def downloadProxyList():
 	proxysite = requests.get(PROXYLIST_URL).text
 	soup = BeautifulSoup(proxysite, "html.parser")
-
 	soup = soup.find('table', {'class' : 'proxies'}).tbody
+	proxylist = [tr.td.a['href'] for tr in soup.findAll('tr')]
+	return proxylist
 
-	proxylist = []
+def getProxyList(expiry_time = 86400, file_path='.'):
 
-	for tr in soup.findAll('tr'):
-		proxylist.append(tr.td.a['href'])
+	print('[+] Checking if proxylist exists.')
 
-	return proxylist[0:5]
+	# If the file exists and is not yet expired
+	if os.path.exists(file_path) and int(time.time()) - os.path.getmtime(file_path) <= expiry_time:
+		# Read from it.
+		print('[+] Proxylist exists. Reading...')
+		with open(file_path, 'rb') as f:
+			return pickle.load(f)
+	# Otherwise, redownload the proxylist and write it to file.
+	else:
+		print('[!] Proxylist does not exist. Redownloading...')
+		proxylist = downloadProxyList()
+		with open(file_path, 'wb') as f:
+			pickle.dump(proxylist, f)
+		return proxylist
 
 def searchForShit(proxysite, query):
 	
-	searchResultPage = requests.get(proxysite + "/s/?q=" + convert(query) + "&page=0").text
+	searchResultPage = requests.get(proxysite + "/s/?q=" + convert(query) + "&page=0", timeout=5).text
 	print(proxysite + "/s/?q=" + convert(query) + "&page=0")
 	print("[+] Query page fetched using " + proxysite)
 	soup = BeautifulSoup(searchResultPage, "html.parser")
@@ -79,7 +98,7 @@ def printPresentableQueries(queryResults):
 	print("[+] Queries fetched : ")
 
 	for torrent in queryResults:
-		print("%s %s S:%s L:%s Size:%s" %  ((str(i)+'.').ljust(3), torrent['name'][:35].ljust(35), torrent['seeds'].ljust(5), torrent['leechers'].ljust(5), torrent['size'].ljust(15)))
+		print("%s %s S:%s L:%s Size:%s" %  ((str(i)+'.').ljust(3), torrent['name'][:TSIZE].ljust(TSIZE), torrent['seeds'].ljust(5), torrent['leechers'].ljust(5), torrent['size'].ljust(15)))
 		i += 1
 
 	choice = input("Choose the range which you want to download : ")
@@ -127,8 +146,7 @@ if __name__ == '__main__':
 	parser.add_argument("query", help = "The query you wanna search.")
 	args = parser.parse_args()
 	print("[+] Searching for " + args.query)
-	print("[+] Choosing fastest proxysite...")
-	proxylist = chooseProxy()
+	proxylist = getProxyList(file_path = '.proxylist')
 	queryResults = None
 	i = 0
 	while queryResults is None:
