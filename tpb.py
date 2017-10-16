@@ -15,11 +15,13 @@ import time
 import pickle
 
 from multiprocessing.dummy import Pool as ThreadPool
+import itertools
 
 PROXYSITE = "https://proxyspotting.in"
 PROXYLIST_URL = "https://thepiratebay-proxylist.org"
 
 TSIZE = 50
+TIMEOUT_TIME = 5
 
 def convert(queryString):
 	return queryString.replace(' ', '+')
@@ -49,31 +51,39 @@ def getProxyList(expiry_time = 86400, file_path='.'):
 			pickle.dump(proxylist, f)
 		return proxylist
 
-def searchForShit(proxysite, query):
-	
-	searchResultPage = requests.get(proxysite + "/s/?q=" + convert(query) + "&page=0", timeout=5).text
-	print(proxysite + "/s/?q=" + convert(query) + "&page=0")
-	print("[+] Query page fetched using " + proxysite)
-	soup = BeautifulSoup(searchResultPage, "html.parser")
 
-	soup = soup.find('table', {'id' : 'searchResult'})
+def xyz(proxysite, query):
 	
-	if soup is None:
-		print("ERROR : No results found.")
-		sys.exit(0)
-	# print(soup)
-	
-	queryResults = []
+	try:
+		searchResultPage = requests.get(proxysite + '/s/', params={'q':query, 'page':0}, timeout = TIMEOUT_TIME).text
+	except Exception:
+		return None
 
-	for tr in soup.findAll('tr')[1:]:
+	soup = BeautifulSoup(searchResultPage, 'html.parser').find('table', {'id':'searchResult'})
+	return soup
+
+def getSearchList(proxylist, query, chunkSize = 3):
+	# Downloads the search result in groups of chunkSize
+	for i in range(0, len(proxylist), chunkSize):
+		chunk = proxylist[i:i+chunkSize]
 		
+		pool = ThreadPool(4)
+		soups = pool.starmap(xyz, zip(chunk, itertools.repeat(query)))
+
+		for soup in soups:
+			if soup is not None:
+				return soup
+
+def extractQueryResults(soup):
+	queryResults = []
+	for tr in soup.findAll('tr')[1:]:
 		currentResult = {}
 
 		currentResult['name'] = tr.find('a', {'class' : 'detLink'}).text
 		currentResult['link'] = tr.find('a', {'class' : 'detLink'})['href']
 
 		#Appending the proxysite link to convert relative link to absolute
-		currentResult['link'] = proxysite + currentResult['link']
+		currentResult['link'] = currentResult['link']
 
 		stuff = tr.findAll('td', {'align' : 'right'})
 
@@ -88,8 +98,7 @@ def searchForShit(proxysite, query):
 
 		queryResults.append(currentResult)
 
-	# print(json.dumps(queryResults, indent = 4))
-	return queryResults[:20]
+	return queryResults[:20]	
 	
 def printPresentableQueries(queryResults):
 
@@ -147,15 +156,19 @@ if __name__ == '__main__':
 	args = parser.parse_args()
 	print("[+] Searching for " + args.query)
 	proxylist = getProxyList(file_path = '.proxylist')
-	queryResults = None
-	i = 0
-	while queryResults is None:
-		try:		
-			print("[+] Proxysite selected : " + proxylist[i])
-			print("[+] Downloading query page...")
-			queryResults = searchForShit(proxylist[i], args.query)
-		except:
-			pass
-		i += 1
+	
+	soup = getSearchList(proxylist, args.query)
+	queryResults = extractQueryResults(soup)
+
+	# queryResults = None
+	# i = 0
+	# while queryResults is None:
+	# 	try:		
+	# 		print("[+] Proxysite selected : " + proxylist[i])
+	# 		print("[+] Downloading query page...")
+	# 		queryResults = searchForShit(proxylist[i], args.query)
+	# 	except:
+	# 		pass
+	# 	i += 1
 	choice = printPresentableQueries(queryResults)
 	gotoChoiceAndDownload(choice)
