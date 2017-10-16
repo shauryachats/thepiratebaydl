@@ -114,7 +114,7 @@ def gotoChoiceAndDownload(queryVector):
 	for choice in queryVector:
 		print("[+] Extracting magnet link...")
 
-		torrentPage = requests.get(choice['link']).text
+		torrentPage = requests.get(PROXYSITE + choice['link']).text
 		soup = BeautifulSoup(torrentPage, "html.parser")
 
 		downloadDiv = soup.find('div', {'class' : 'download'})
@@ -136,7 +136,6 @@ def buildHash(ariafile):
 	with open(ariafile, 'rb') as f:
 		f.read(6)
 		val = struct.unpack('>I', f.read(4))[0]
-		print(val)
 		strs = "0123456789abcdef"
 		infohash = [strs[i//16] + strs[i%16] for i in f.read(val)]
 		infohash = "magnet:?xt=urn:btih:" + "".join(infohash)
@@ -170,6 +169,5 @@ if __name__ == '__main__':
 		choice = printPresentableQueries(queryResults)
 		downloadLinks = gotoChoiceAndDownload(choice)
 
-	print(downloadLinks)
 	# Here we call aria2c.
 	call(['aria2c'] + downloadLinks)
