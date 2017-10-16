@@ -110,11 +110,8 @@ def printPresentableQueries(queryResults):
 	return queryVector
 
 def gotoChoiceAndDownload(queryVector):
-	
-	magnetVector = ["aria2c"]
-
+	downloadLinks = []
 	for choice in queryVector:
-		
 		print("[+] Extracting magnet link...")
 
 		torrentPage = requests.get(choice['link']).text
@@ -129,11 +126,8 @@ def gotoChoiceAndDownload(queryVector):
 			print("[!] Magnet link cannot be extracted. Aborting...")
 			return
 
-		#print("Downloading via aria2c...")
-		magnetVector.append(downloadLink)
-
-	#Calling a subprocess to download the actual thing.
-	call(magnetVector)
+		downloadLinks.append(downloadLink)
+	return downloadLinks
 
 #
 #	Builds the infohash from the .aria file to resume downloading.
@@ -142,11 +136,15 @@ def buildHash(ariafile):
 	with open(ariafile, 'rb') as f:
 		f.read(6)
 		val = struct.unpack('>I', f.read(4))[0]
+		print(val)
 		strs = "0123456789abcdef"
 		infohash = [strs[i//16] + strs[i%16] for i in f.read(val)]
+		infohash = "magnet:?xt=urn:btih:" + "".join(infohash)
 		return infohash
 
-
+def resumeDownloads():
+	hashes = [buildHash(f) for f in os.listdir('.') if os.path.isfile(f) and f.endswith('.aria2')]
+	return hashes
 
 #
 #	The main() function, lol.
@@ -159,13 +157,19 @@ if __name__ == '__main__':
 	print("[+] Searching for " + args.query)
 	proxylist = getProxyList(file_path = '.proxylist')
 	
-	soup = getSearchList(proxylist, args.query)
+	downloadLinks = None
 
-	if soup is None:
-		print('[!] Cannot connect to servers, sorry.')
-		sys.exit(-1)
+	if args.query == 'resume':
+		downloadLinks = resumeDownloads()
+	else:
+		soup = getSearchList(proxylist, args.query)
+		if soup is None:
+			print('[!] Cannot connect to servers, sorry.')
+			sys.exit(-1)
+		queryResults = extractQueryResults(soup)
+		choice = printPresentableQueries(queryResults)
+		downloadLinks = gotoChoiceAndDownload(choice)
 
-	queryResults = extractQueryResults(soup)
-
-	choice = printPresentableQueries(queryResults)
-	gotoChoiceAndDownload(choice)
+	print(downloadLinks)
+	# Here we call aria2c.
+	call(['aria2c'] + downloadLinks)
