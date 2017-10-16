@@ -1,30 +1,22 @@
 #!/bin/env python
 import requests
 from bs4 import BeautifulSoup
-
 import argparse
 import json
-
 from subprocess import call
 import sys
-
 import os
 import time
-
-# Pickling the file, why not.
 import pickle
-
 from multiprocessing.dummy import Pool as ThreadPool
 import itertools
+import struct
 
 PROXYSITE = "https://proxyspotting.in"
 PROXYLIST_URL = "https://thepiratebay-proxylist.org"
 
 TSIZE = 50
 TIMEOUT_TIME = 5
-
-def convert(queryString):
-	return queryString.replace(' ', '+')
 
 def downloadProxyList():
 	proxysite = requests.get(PROXYLIST_URL).text
@@ -53,13 +45,17 @@ def getProxyList(expiry_time = 86400, file_path='.'):
 
 
 def xyz(proxysite, query):
-	
+	global PROXYSITE
+
 	try:
 		searchResultPage = requests.get(proxysite + '/s/', params={'q':query, 'page':0}, timeout = TIMEOUT_TIME).text
 	except Exception:
 		return None
 
 	soup = BeautifulSoup(searchResultPage, 'html.parser').find('table', {'id':'searchResult'})
+	if soup is not None:
+		PROXYSITE = proxysite
+
 	return soup
 
 def getSearchList(proxylist, query, chunkSize = 3):
@@ -101,23 +97,16 @@ def extractQueryResults(soup):
 	return queryResults[:20]	
 	
 def printPresentableQueries(queryResults):
-
 	i = 1
-
 	print("[+] Queries fetched : ")
-
 	for torrent in queryResults:
 		print("%s %s S:%s L:%s Size:%s" %  ((str(i)+'.').ljust(3), torrent['name'][:TSIZE].ljust(TSIZE), torrent['seeds'].ljust(5), torrent['leechers'].ljust(5), torrent['size'].ljust(15)))
 		i += 1
-
 	choice = input("Choose the range which you want to download : ")
 	choice = choice.split(',')
-
 	queryVector = []
-
 	for ch in choice:
 		queryVector.append(queryResults[int(ch)-1])
-
 	return queryVector
 
 def gotoChoiceAndDownload(queryVector):
@@ -147,6 +136,19 @@ def gotoChoiceAndDownload(queryVector):
 	call(magnetVector)
 
 #
+#	Builds the infohash from the .aria file to resume downloading.
+#
+def buildHash(ariafile):
+	with open(ariafile, 'rb') as f:
+		f.read(6)
+		val = struct.unpack('>I', f.read(4))[0]
+		strs = "0123456789abcdef"
+		infohash = [strs[i//16] + strs[i%16] for i in f.read(val)]
+		return infohash
+
+
+
+#
 #	The main() function, lol.
 #
 if __name__ == '__main__':	
@@ -158,17 +160,12 @@ if __name__ == '__main__':
 	proxylist = getProxyList(file_path = '.proxylist')
 	
 	soup = getSearchList(proxylist, args.query)
+
+	if soup is None:
+		print('[!] Cannot connect to servers, sorry.')
+		sys.exit(-1)
+
 	queryResults = extractQueryResults(soup)
 
-	# queryResults = None
-	# i = 0
-	# while queryResults is None:
-	# 	try:		
-	# 		print("[+] Proxysite selected : " + proxylist[i])
-	# 		print("[+] Downloading query page...")
-	# 		queryResults = searchForShit(proxylist[i], args.query)
-	# 	except:
-	# 		pass
-	# 	i += 1
 	choice = printPresentableQueries(queryResults)
 	gotoChoiceAndDownload(choice)
