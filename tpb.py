@@ -18,6 +18,13 @@ PROXYLIST_URL = "https://thepiratebay-proxylist.org"
 TSIZE = 50
 TIMEOUT_TIME = 5
 
+def convertQueryDict(queryDict):
+	returnString = "?"
+	for key in queryDict:
+		returnString += str(key) + '=' + str(queryDict[key]) + '&'
+	return returnString[:-1]
+
+
 def downloadProxyList():
 	proxysite = requests.get(PROXYLIST_URL).text
 	soup = BeautifulSoup(proxysite, "html.parser")
@@ -44,12 +51,14 @@ def getProxyList(expiry_time = 86400, file_path='.'):
 		return proxylist
 
 
-def xyz(proxysite, query):
+def xyz(proxysite, queryDict):
 	global PROXYSITE
 
 	try:
-		searchResultPage = requests.get(proxysite + '/s/', params={'q':query, 'page':0}, timeout = TIMEOUT_TIME).text
-	except Exception:
+		searchResultPage = requests.get(proxysite + '/s/' + convertQueryDict(queryDict), timeout = TIMEOUT_TIME)
+		print(searchResultPage.url)
+		searchResultPage = searchResultPage.text
+	except Exception as e:
 		return None
 
 	soup = BeautifulSoup(searchResultPage, 'html.parser').find('table', {'id':'searchResult'})
@@ -58,13 +67,13 @@ def xyz(proxysite, query):
 
 	return soup
 
-def getSearchList(proxylist, query, chunkSize = 3):
+def getSearchList(proxylist, queryDict, chunkSize = 3):
 	# Downloads the search result in groups of chunkSize
 	for i in range(0, len(proxylist), chunkSize):
 		chunk = proxylist[i:i+chunkSize]
 		
 		pool = ThreadPool(4)
-		soups = pool.starmap(xyz, zip(chunk, itertools.repeat(query)))
+		soups = pool.starmap(xyz, zip(chunk, itertools.repeat(queryDict)))
 
 		for soup in soups:
 			if soup is not None:
@@ -152,16 +161,27 @@ if __name__ == '__main__':
 
 	parser = argparse.ArgumentParser()
 	parser.add_argument("query", help = "The query you wanna search.")
+	parser.add_argument("-e", "--extra", help = "Extra params")
 	args = parser.parse_args()
-	print("[+] Searching for " + args.query)
-	proxylist = getProxyList(file_path = '.proxylist')
 	
+	# Constructing queryDict.
 	downloadLinks = None
 
 	if args.query == 'resume':
+		print("[+] Resuming previous downloads...")
 		downloadLinks = resumeDownloads()
 	else:
-		soup = getSearchList(proxylist, args.query)
+
+		# Constructing queryDict.
+		queryDict = {'q' : args.query}
+		if args.extra:
+			queryDict[args.extra] = 'on'
+		queryDict['page'] = 0
+		queryDict['orderby'] = 99
+ 
+		print("[+] Searching for " + args.query)
+		proxylist = getProxyList(file_path = '.proxylist')
+		soup = getSearchList(proxylist, queryDict)
 		if soup is None:
 			print('[!] Cannot connect to servers, sorry.')
 			sys.exit(-1)
