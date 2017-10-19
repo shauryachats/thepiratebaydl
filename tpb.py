@@ -190,4 +190,4 @@ if __name__ == '__main__':
 		downloadLinks = gotoChoiceAndDownload(choice)
 
 	# Here we call aria2c.
-	call(['aria2c'] + downloadLinks)
+	call(['aria2c', '--seed-time=0'] + downloadLinks)
