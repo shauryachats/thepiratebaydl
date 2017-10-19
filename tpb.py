@@ -189,5 +189,9 @@ if __name__ == '__main__':
 		choice = printPresentableQueries(queryResults)
 		downloadLinks = gotoChoiceAndDownload(choice)
 
+	if len(downloadLinks) == 0:
+		print('[!] No download link specified! Exiting...')
+		sys.exit(-2) 
+
 	# Here we call aria2c.
 	call(['aria2c', '--seed-time=0'] + downloadLinks)
