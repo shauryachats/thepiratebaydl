@@ -18,6 +18,9 @@ PROXYLIST_URL = "https://thepiratebay-proxylist.org"
 TSIZE = 50
 TIMEOUT_TIME = 5
 
+DOWNLOAD_COMMAND_LIST = ['aria2c', '--seed-time=0']
+TORRENT_COMMAND_LIST = ['aria2c', '--bt-metadata-only=true', '--bt-save-metadata=true']
+
 def convertQueryDict(queryDict):
 	returnString = "?"
 	for key in queryDict:
@@ -32,7 +35,7 @@ def downloadProxyList():
 	proxylist = [tr.td.a['href'] for tr in soup.findAll('tr')]
 	return proxylist
 
-def getProxyList(expiry_time = 86400, file_path='.'):
+def getProxyList(expiry_time = 864000, file_path='.'):
 
 	print('[+] Checking if proxylist exists.')
 
@@ -162,8 +165,10 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument("query", help = "The query you wanna search.")
 	parser.add_argument("-e", "--extra", help = "Extra params")
+	parser.add_argument("-t", "--torrent-file-only", help = "",
+						action="store_true")
 	args = parser.parse_args()
-	
+
 	# Constructing queryDict.
 	downloadLinks = None
 
@@ -193,5 +198,10 @@ if __name__ == '__main__':
 		print('[!] No download link specified! Exiting...')
 		sys.exit(-2) 
 
+	# Download only the torrent files.
+	if args.torrent_file_only:
+		print('[+] Downloading torrents...')
+		call(TORRENT_COMMAND_LIST + downloadLinks)
+
 	# Here we call aria2c.
-	call(['aria2c', '--seed-time=0'] + downloadLinks)
+	call(DOWNLOAD_COMMAND_LIST + downloadLinks)
