@@ -177,7 +177,7 @@ def convertMagnetToTorrent(downloadLinks):
 if __name__ == '__main__':	
 
 	parser = argparse.ArgumentParser()
-	parser.add_argument("query", help = "The query you wanna search.")
+	parser.add_argument("query", nargs='?', help = "The query you wanna search.")
 	parser.add_argument("-e", "--extra", help = "Extra params")
 	parser.add_argument("-t", "--torrent-file-only", help = "Do not download file",
 						action="store_true")
