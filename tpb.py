@@ -70,7 +70,7 @@ def xyz(proxysite, queryDict):
 
 	return soup
 
-def getSearchList(proxylist, queryDict, chunkSize = 3):
+def getSearchList(proxylist, queryDict, chunkSize = 2):
 	# Downloads the search result in groups of chunkSize
 	for i in range(0, len(proxylist), chunkSize):
 		chunk = proxylist[i:i+chunkSize]
@@ -158,6 +158,20 @@ def resumeDownloads():
 	return hashes
 
 #
+#	
+#
+def getTorrents():
+	torrentlist = [f for f in os.listdir('.') if os.path.isfile(f) and f.endswith('.torrent')]
+	return torrentlist
+
+#
+#	Convert magnet links to torrent files.
+#
+def convertMagnetToTorrent(downloadLinks):
+	print('[+] Downloading torrents...')
+	call(TORRENT_COMMAND_LIST + downloadLinks)
+		
+#
 #	The main() function, lol.
 #
 if __name__ == '__main__':	
@@ -165,16 +179,16 @@ if __name__ == '__main__':
 	parser = argparse.ArgumentParser()
 	parser.add_argument("query", help = "The query you wanna search.")
 	parser.add_argument("-e", "--extra", help = "Extra params")
-	parser.add_argument("-t", "--torrent-file-only", help = "",
+	parser.add_argument("-t", "--torrent-file-only", help = "Do not download file",
 						action="store_true")
+	parser.add_argument("-r", "--resume", help = "Resume incomplete torrent files.", action = "store_true")
 	args = parser.parse_args()
 
-	# Constructing queryDict.
-	downloadLinks = None
+	torrentLinks = None
 
-	if args.query == 'resume':
+	if args.resume:
 		print("[+] Resuming previous downloads...")
-		downloadLinks = resumeDownloads()
+		torrentLinks = resumeDownloads()
 	else:
 
 		# Constructing queryDict.
@@ -192,16 +206,14 @@ if __name__ == '__main__':
 			sys.exit(-1)
 		queryResults = extractQueryResults(soup)
 		choice = printPresentableQueries(queryResults)
-		downloadLinks = gotoChoiceAndDownload(choice)
+		torrentLinks = gotoChoiceAndDownload(choice)
 
-	if len(downloadLinks) == 0:
-		print('[!] No download link specified! Exiting...')
-		sys.exit(-2) 
+		if len(torrentLinks) == 0:
+			print('[!] No download link specified! Exiting...')
+			sys.exit(-2) 
 
-	# Download only the torrent files.
 	if args.torrent_file_only:
-		print('[+] Downloading torrents...')
-		call(TORRENT_COMMAND_LIST + downloadLinks)
-
-	# Here we call aria2c.
-	call(DOWNLOAD_COMMAND_LIST + downloadLinks)
+		print('[+] Converting magnet to torrent...')
+		convertMagnetToTorrent(torrentLinks)
+	else:
+		call(DOWNLOAD_COMMAND_LIST + torrentLinks)
