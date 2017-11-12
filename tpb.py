@@ -35,7 +35,7 @@ def downloadProxyList():
 	proxylist = [tr.td.a['href'] for tr in soup.findAll('tr')]
 	return proxylist
 
-def getProxyList(expiry_time = 864000, file_path='.'):
+def getProxyList(expiry_time = 864000, file_path='~'):
 
 	print('[+] Checking if proxylist exists.')
 
