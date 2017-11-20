@@ -64,7 +64,7 @@ def xyz(proxysite, queryDict):
 
 	try:
 		searchResultPage = requests.get(proxysite + '/s/' + convertQueryDict(queryDict), timeout = TIMEOUT_TIME)
-		print(searchResultPage.url)
+		# print(searchResultPage.url)
 		searchResultPage = searchResultPage.text
 	except Exception as e:
 		return None
