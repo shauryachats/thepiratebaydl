@@ -1,4 +1,9 @@
 #!/bin/env python
+
+#
+#	TODO : Add a config file, to set the default download directory.
+#
+
 import requests
 from bs4 import BeautifulSoup
 import argparse
