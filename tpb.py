@@ -20,6 +20,8 @@ import struct
 PROXYSITE = "https://proxyspotting.in"
 PROXYLIST_URL = "https://thepiratebay-proxylist.org"
 
+
+
 TSIZE = 50
 TIMEOUT_TIME = 5
 
@@ -44,6 +46,9 @@ def getProxyList(expiry_time = 864000, file_path='~'):
 
 	print('[+] Checking if proxylist exists.')
 
+	file_path = os.path.expanduser(file_path)
+	file_path += '/.proxylist'
+
 	# If the file exists and is not yet expired
 	if os.path.exists(file_path) and int(time.time()) - os.path.getmtime(file_path) <= expiry_time:
 		# Read from it.
@@ -56,6 +61,7 @@ def getProxyList(expiry_time = 864000, file_path='~'):
 		proxylist = downloadProxyList()
 		with open(file_path, 'wb') as f:
 			pickle.dump(proxylist, f)
+		print('[+] Proxylist downloaded.')
 		return proxylist
 
 
@@ -196,6 +202,11 @@ if __name__ == '__main__':
 		torrentLinks = resumeDownloads()
 	else:
 
+		# Check if args.query is empty or not. If empty, return
+		if not args.query:
+			print("[!] No queries entered! Please enter some query.")
+			sys.exit(-1)
+
 		# Constructing queryDict.
 		queryDict = {'q' : args.query}
 		if args.extra:
@@ -204,7 +215,7 @@ if __name__ == '__main__':
 		queryDict['orderby'] = 99
  
 		print("[+] Searching for " + args.query)
-		proxylist = getProxyList(file_path = '.proxylist')
+		proxylist = getProxyList()
 		soup = getSearchList(proxylist, queryDict)
 		if soup is None:
 			print('[!] Cannot connect to servers, sorry.')
