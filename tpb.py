@@ -17,16 +17,20 @@ from multiprocessing.dummy import Pool as ThreadPool
 import itertools
 import struct
 
+import threading
+import queue
+
 PROXYSITE = "https://proxyspotting.in"
 PROXYLIST_URL = "https://thepiratebay-proxylist.org"
 
-
-
 TSIZE = 50
-TIMEOUT_TIME = 5
+TIMEOUT_TIME = 10
 
 DOWNLOAD_COMMAND_LIST = ['aria2c', '--seed-time=0']
 TORRENT_COMMAND_LIST = ['aria2c', '--bt-metadata-only=true', '--bt-save-metadata=true']
+
+globalSoup = None
+
 
 def convertQueryDict(queryDict):
 	returnString = "?"
@@ -65,33 +69,55 @@ def getProxyList(expiry_time = 864000, file_path='~'):
 		return proxylist
 
 
-def xyz(proxysite, queryDict):
-	global PROXYSITE
+# def xyz(proxysite, queryDict):
+# 	global PROXYSITE
 
+# 	try:
+# 		searchResultPage = requests.get(proxysite + '/s/' + convertQueryDict(queryDict), timeout = TIMEOUT_TIME)
+# 		# print(searchResultPage.url)
+# 		searchResultPage = searchResultPage.text
+# 	except Exception as e:
+# 		return None
+
+# 	soup = BeautifulSoup(searchResultPage, 'html.parser').find('table', {'id':'searchResult'})
+# 	if soup is not None:
+# 		PROXYSITE = proxysite
+
+# 	return soup
+
+# def getSearchList(proxylist, queryDict, chunkSize = 2):
+# 	# Downloads the search result in groups of chunkSize
+# 	for i in range(0, len(proxylist), chunkSize):
+# 		chunk = proxylist[i:i+chunkSize]
+		
+# 		pool = ThreadPool(4)
+# 		soups = pool.starmap(xyz, zip(chunk, itertools.repeat(queryDict)))
+
+# 		for soup in soups:
+# 			if soup is not None:
+# 				return soup
+
+def newxyz(proxysite, queryDict, result_queue):
+	print(proxysite)
 	try:
 		searchResultPage = requests.get(proxysite + '/s/' + convertQueryDict(queryDict), timeout = TIMEOUT_TIME)
-		# print(searchResultPage.url)
 		searchResultPage = searchResultPage.text
+		soup = BeautifulSoup(searchResultPage, 'html.parser').find('table', {'id':'searchResult'})
+		if soup:
+			PROXYSITE = proxysite
+			result_queue.put(soup)
 	except Exception as e:
-		return None
+		pass
+		# print("Exception!: " + proxysite + ' ' + str(e))
 
-	soup = BeautifulSoup(searchResultPage, 'html.parser').find('table', {'id':'searchResult'})
-	if soup is not None:
-		PROXYSITE = proxysite
-
-	return soup
-
-def getSearchList(proxylist, queryDict, chunkSize = 2):
-	# Downloads the search result in groups of chunkSize
-	for i in range(0, len(proxylist), chunkSize):
-		chunk = proxylist[i:i+chunkSize]
-		
-		pool = ThreadPool(4)
-		soups = pool.starmap(xyz, zip(chunk, itertools.repeat(queryDict)))
-
-		for soup in soups:
-			if soup is not None:
-				return soup
+def getSearchList(proxylist, queryDict, chunkSize = 3):
+	q = queue.Queue()
+	threads = [ threading.Thread(target=newxyz, args=(proxylist[i], queryDict, q)) for i in range(chunkSize)]
+	for th in threads:
+		th.daemon = True
+		th.start()
+	realsoup = q.get()	
+	return realsoup
 
 def extractQueryResults(soup):
 	queryResults = []
