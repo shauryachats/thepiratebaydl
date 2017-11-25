@@ -70,37 +70,8 @@ def getProxyList(expiry_time = 864000, file_path='~'):
 		print('[+] Proxylist downloaded.')
 		return proxylist
 
-
-# def xyz(proxysite, queryDict):
-# 	global PROXYSITE
-
-# 	try:
-# 		searchResultPage = requests.get(proxysite + '/s/' + convertQueryDict(queryDict), timeout = TIMEOUT_TIME)
-# 		# print(searchResultPage.url)
-# 		searchResultPage = searchResultPage.text
-# 	except Exception as e:
-# 		return None
-
-# 	soup = BeautifulSoup(searchResultPage, 'html.parser').find('table', {'id':'searchResult'})
-# 	if soup is not None:
-# 		PROXYSITE = proxysite
-
-# 	return soup
-
-# def getSearchList(proxylist, queryDict, chunkSize = 2):
-# 	# Downloads the search result in groups of chunkSize
-# 	for i in range(0, len(proxylist), chunkSize):
-# 		chunk = proxylist[i:i+chunkSize]
-		
-# 		pool = ThreadPool(4)
-# 		soups = pool.starmap(xyz, zip(chunk, itertools.repeat(queryDict)))
-
-# 		for soup in soups:
-# 			if soup is not None:
-# 				return soup
-
-def newxyz(proxysite, queryDict, result_queue):
-	print(proxysite)
+def getsite(proxysite, queryDict, result_queue):
+	# print(proxysite)
 	try:
 		searchResultPage = requests.get(proxysite + '/s/' + convertQueryDict(queryDict), timeout = TIMEOUT_TIME)
 		searchResultPage = searchResultPage.text
@@ -109,7 +80,7 @@ def newxyz(proxysite, queryDict, result_queue):
 			PROXYSITE = proxysite
 			result_queue.put(soup)
 	except Exception as e:
-		print("Exception!" + proxysite + ': ' + str(e))
+		# print("Exception!" + proxysite + ': ' + str(e))
 		pass
 
 def getSearchList(proxylist, queryDict, chunkSize = 3):
@@ -117,13 +88,14 @@ def getSearchList(proxylist, queryDict, chunkSize = 3):
 	for i in range(0, len(proxylist), chunkSize):	
 		q = queue.Queue()
 		chunk = proxylist[i:i+chunkSize]
-		threads = [ threading.Thread(target=newxyz, args=(chunk[j], queryDict, q)) for j in range(chunkSize)]
+		
+		threads = [ threading.Thread(target=getsite, args=(chunk[j], queryDict, q)) for j in range(chunkSize)]
 		for th in threads:
 			th.daemon = True
 			th.start()
 		
 		try:
-			realsoup = q.get(True, TIMEOUT_TIME)	
+			realsoup = q.get(True, TIMEOUT_TIME + 1)	
 		except queue.Empty:
 			pass # This batch of URLs did not yield any, let's try again?		
 		else:
