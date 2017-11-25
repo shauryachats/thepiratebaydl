@@ -252,7 +252,6 @@ if __name__ == '__main__':
  
 		print("[+] Searching for " + args.query)
 		proxylist = getProxyList()
-		proxylist = ['a', 'b', 'c', 'd', 'e', 'f'] + proxylist
 		soup = getSearchList(proxylist, queryDict)
 		if soup is None:
 			print('[!] Cannot connect to servers, sorry.')
