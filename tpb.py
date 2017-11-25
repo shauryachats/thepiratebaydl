@@ -2,6 +2,8 @@
 
 #
 #	TODO : Add a config file, to set the default download directory.
+#	TODO : Add a verbose mode, for all the debugging stuff.
+#	TODO : Split all the code into nice py files, it's messy here.
 #
 
 import requests
@@ -24,7 +26,7 @@ PROXYSITE = "https://proxyspotting.in"
 PROXYLIST_URL = "https://thepiratebay-proxylist.org"
 
 TSIZE = 50
-TIMEOUT_TIME = 10
+TIMEOUT_TIME = 5
 
 DOWNLOAD_COMMAND_LIST = ['aria2c', '--seed-time=0']
 TORRENT_COMMAND_LIST = ['aria2c', '--bt-metadata-only=true', '--bt-save-metadata=true']
@@ -107,17 +109,25 @@ def newxyz(proxysite, queryDict, result_queue):
 			PROXYSITE = proxysite
 			result_queue.put(soup)
 	except Exception as e:
+		print("Exception!" + proxysite + ': ' + str(e))
 		pass
-		# print("Exception!: " + proxysite + ' ' + str(e))
 
 def getSearchList(proxylist, queryDict, chunkSize = 3):
-	q = queue.Queue()
-	threads = [ threading.Thread(target=newxyz, args=(proxylist[i], queryDict, q)) for i in range(chunkSize)]
-	for th in threads:
-		th.daemon = True
-		th.start()
-	realsoup = q.get()	
-	return realsoup
+	
+	for i in range(0, len(proxylist), chunkSize):	
+		q = queue.Queue()
+		chunk = proxylist[i:i+chunkSize]
+		threads = [ threading.Thread(target=newxyz, args=(chunk[j], queryDict, q)) for j in range(chunkSize)]
+		for th in threads:
+			th.daemon = True
+			th.start()
+		
+		try:
+			realsoup = q.get(True, TIMEOUT_TIME)	
+		except queue.Empty:
+			pass # This batch of URLs did not yield any, let's try again?		
+		else:
+			return realsoup
 
 def extractQueryResults(soup):
 	queryResults = []
@@ -242,6 +252,7 @@ if __name__ == '__main__':
  
 		print("[+] Searching for " + args.query)
 		proxylist = getProxyList()
+		proxylist = ['a', 'b', 'c', 'd', 'e', 'f'] + proxylist
 		soup = getSearchList(proxylist, queryDict)
 		if soup is None:
 			print('[!] Cannot connect to servers, sorry.')
