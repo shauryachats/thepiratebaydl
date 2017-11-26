@@ -142,7 +142,6 @@ def printPresentableQueries(queryResults):
 	return queryVector
 
 def getmag(url, result_queue):
-	# print("trying url = " + url)
 	try:
 		torrentPage = requests.get(url, timeout = MAGNET_TIMEOUT_TIME).text
 		soup = BeautifulSoup(torrentPage, "html.parser")
@@ -150,18 +149,15 @@ def getmag(url, result_queue):
 		downloadDiv = soup.find('div', {'class' : 'download'})
 		downloadLink = downloadDiv.a['href']
 
-		# print(downloadLink)
-
 		if downloadLink.startswith("magnet:"):
-			# print("Returning LINK!")
 			result_queue.put(downloadLink)
+	
 	except Exception as e:
 		# print('!Exception ' + url + ' ' + str(e))
 		pass
 
 def getMagnets(choice, proxylist):
 	chunkSize = 3
-	# print(choice)
 	for i in range(0, len(proxylist), chunkSize):
 		q = queue.Queue()
 		chunk = proxylist[i:i+chunkSize]
@@ -174,7 +170,6 @@ def getMagnets(choice, proxylist):
 		try:
 			magnet = q.get(True, MAGNET_TIMEOUT_TIME + 1)	
 		except queue.Empty:
-			# print("Nothing here for " + choice['name'])
 			pass # This batch of URLs did not yield any, let's try again?		
 		else:
 			print("[+] Extracted magnet link for " + choice['name'][:30])
@@ -184,27 +179,6 @@ def getMagnets(choice, proxylist):
 def gotoChoiceAndDownload(queryVector, proxylist):
 	with Pool(8) as pool:
 		return pool.starmap(getMagnets, zip(queryVector, itertools.repeat(proxylist)))
-
-
-# def gotoChoiceAndDownload(queryVector):
-# 	downloadLinks = []
-# 	for choice in queryVector:
-# 		print("[+] Extracting magnet link...")
-
-# 		torrentPage = requests.get(PROXYSITE + choice['link']).text
-# 		soup = BeautifulSoup(torrentPage, "html.parser")
-
-# 		downloadDiv = soup.find('div', {'class' : 'download'})
-# 		downloadLink = downloadDiv.a['href']
-
-# 		if downloadLink.startswith("magnet:"):
-# 			print("[+] Magnet link successfully extracted.")
-# 		else:
-# 			print("[!] Magnet link cannot be extracted. Aborting...")
-# 			return
-
-# 		downloadLinks.append(downloadLink)
-# 	return downloadLinks
 
 #
 #	Builds the infohash from the .aria file to resume downloading.
