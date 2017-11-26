@@ -15,7 +15,7 @@ import sys
 import os
 import time
 import pickle
-from multiprocessing.dummy import Pool as ThreadPool
+from multiprocessing import Pool
 import itertools
 import struct
 
@@ -27,12 +27,10 @@ PROXYLIST_URL = "https://thepiratebay-proxylist.org"
 
 TSIZE = 50
 TIMEOUT_TIME = 5
+MAGNET_TIMEOUT_TIME = 10
 
 DOWNLOAD_COMMAND_LIST = ['aria2c', '--seed-time=0']
 TORRENT_COMMAND_LIST = ['aria2c', '--bt-metadata-only=true', '--bt-save-metadata=true']
-
-globalSoup = None
-
 
 def convertQueryDict(queryDict):
 	returnString = "?"
@@ -87,8 +85,11 @@ def getSearchList(proxylist, queryDict, chunkSize = 3):
 	
 	for i in range(0, len(proxylist), chunkSize):	
 		q = queue.Queue()
-		chunk = proxylist[i:i+chunkSize]
+		chunk = proxylist[i:i+chunkSize]	
 		
+		for links in chunk:
+			print('[-] Querying ' + links)
+
 		threads = [ threading.Thread(target=getsite, args=(chunk[j], queryDict, q)) for j in range(chunkSize)]
 		for th in threads:
 			th.daemon = True
@@ -140,25 +141,70 @@ def printPresentableQueries(queryResults):
 		queryVector.append(queryResults[int(ch)-1])
 	return queryVector
 
-def gotoChoiceAndDownload(queryVector):
-	downloadLinks = []
-	for choice in queryVector:
-		print("[+] Extracting magnet link...")
-
-		torrentPage = requests.get(PROXYSITE + choice['link']).text
+def getmag(url, result_queue):
+	# print("trying url = " + url)
+	try:
+		torrentPage = requests.get(url, timeout = MAGNET_TIMEOUT_TIME).text
 		soup = BeautifulSoup(torrentPage, "html.parser")
 
 		downloadDiv = soup.find('div', {'class' : 'download'})
 		downloadLink = downloadDiv.a['href']
 
-		if downloadLink.startswith("magnet:"):
-			print("[+] Magnet link successfully extracted.")
-		else:
-			print("[!] Magnet link cannot be extracted. Aborting...")
-			return
+		# print(downloadLink)
 
-		downloadLinks.append(downloadLink)
-	return downloadLinks
+		if downloadLink.startswith("magnet:"):
+			# print("Returning LINK!")
+			result_queue.put(downloadLink)
+	except Exception as e:
+		# print('!Exception ' + url + ' ' + str(e))
+		pass
+
+def getMagnets(choice, proxylist):
+	chunkSize = 3
+	# print(choice)
+	for i in range(0, len(proxylist), chunkSize):
+		q = queue.Queue()
+		chunk = proxylist[i:i+chunkSize]
+		
+		threads = [ threading.Thread(target=getmag, args=(chunk[j] + choice['link'], q)) for j in range(chunkSize)]
+		for th in threads:
+			th.daemon = True
+			th.start()
+		
+		try:
+			magnet = q.get(True, MAGNET_TIMEOUT_TIME + 1)	
+		except queue.Empty:
+			# print("Nothing here for " + choice['name'])
+			pass # This batch of URLs did not yield any, let's try again?		
+		else:
+			print("[+] Extracted magnet link for " + choice['name'][:30])
+			return magnet		
+
+
+def gotoChoiceAndDownload(queryVector, proxylist):
+	with Pool(8) as pool:
+		return pool.starmap(getMagnets, zip(queryVector, itertools.repeat(proxylist)))
+
+
+# def gotoChoiceAndDownload(queryVector):
+# 	downloadLinks = []
+# 	for choice in queryVector:
+# 		print("[+] Extracting magnet link...")
+
+# 		torrentPage = requests.get(PROXYSITE + choice['link']).text
+# 		soup = BeautifulSoup(torrentPage, "html.parser")
+
+# 		downloadDiv = soup.find('div', {'class' : 'download'})
+# 		downloadLink = downloadDiv.a['href']
+
+# 		if downloadLink.startswith("magnet:"):
+# 			print("[+] Magnet link successfully extracted.")
+# 		else:
+# 			print("[!] Magnet link cannot be extracted. Aborting...")
+# 			return
+
+# 		downloadLinks.append(downloadLink)
+# 	return downloadLinks
 
 #
 #	Builds the infohash from the .aria file to resume downloading.
@@ -230,7 +276,8 @@ if __name__ == '__main__':
 			sys.exit(-1)
 		queryResults = extractQueryResults(soup)
 		choice = printPresentableQueries(queryResults)
-		torrentLinks = gotoChoiceAndDownload(choice)
+		# torrentLinks = getMagnets(choice, proxylist)
+		torrentLinks = gotoChoiceAndDownload(choice, proxylist)
 
 		if len(torrentLinks) == 0:
 			print('[!] No download link specified! Exiting...')
