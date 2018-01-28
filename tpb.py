@@ -25,9 +25,10 @@ import queue
 PROXYSITE = "https://proxyspotting.in"
 PROXYLIST_URL = "https://thepiratebay-proxylist.org"
 
-TSIZE = 50
-TIMEOUT_TIME = 5
+TSIZE = 105
+TIMEOUT_TIME = 10
 MAGNET_TIMEOUT_TIME = 10
+QUERY_COUNT = 30
 
 DOWNLOAD_COMMAND_LIST = ['aria2c', '--seed-time=0']
 TORRENT_COMMAND_LIST = ['aria2c', '--bt-metadata-only=true', '--bt-save-metadata=true']
@@ -46,7 +47,7 @@ def downloadProxyList():
 	proxylist = [tr.td.a['href'] for tr in soup.findAll('tr')]
 	return proxylist
 
-def getProxyList(expiry_time = 864000, file_path='~'):
+def getProxyList(expiry_time = 8640000, file_path='~'):
 
 	print('[+] Checking if proxylist exists.')
 
@@ -126,7 +127,7 @@ def extractQueryResults(soup):
 
 		queryResults.append(currentResult)
 
-	return queryResults[:20]	
+	return queryResults[:QUERY_COUNT]	
 	
 def printPresentableQueries(queryResults):
 	i = 1
