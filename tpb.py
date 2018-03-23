@@ -28,7 +28,7 @@ PROXYLIST_URL = "https://thepiratebay-proxylist.org"
 TSIZE = 105
 TIMEOUT_TIME = 10
 MAGNET_TIMEOUT_TIME = 10
-QUERY_COUNT = 30
+QUERY_COUNT = 50
 
 DOWNLOAD_COMMAND_LIST = ['aria2c', '--seed-time=0']
 TORRENT_COMMAND_LIST = ['aria2c', '--bt-metadata-only=true', '--bt-save-metadata=true']
@@ -222,6 +222,7 @@ if __name__ == '__main__':
 	parser.add_argument("-t", "--torrent-file-only", help = "Do not download file",
 						action="store_true")
 	parser.add_argument("-r", "--resume", help = "Resume incomplete torrent files.", action = "store_true")
+	parser.add_argument("-p", "--page", help = "Page number", const = 0, nargs = '?')
 	args = parser.parse_args()
 
 	torrentLinks = None
@@ -240,7 +241,7 @@ if __name__ == '__main__':
 		queryDict = {'q' : args.query}
 		if args.extra:
 			queryDict[args.extra] = 'on'
-		queryDict['page'] = 0
+		queryDict['page'] = args.page
 		queryDict['orderby'] = 99
  
 		print("[+] Searching for " + args.query)
