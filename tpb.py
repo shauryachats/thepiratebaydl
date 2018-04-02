@@ -73,6 +73,7 @@ def getsite(proxysite, queryDict, result_queue):
 	# print(proxysite)
 	try:
 		searchResultPage = requests.get(proxysite + '/s/' + convertQueryDict(queryDict), timeout = TIMEOUT_TIME)
+		# print(searchResultPage.url)
 		searchResultPage = searchResultPage.text
 		soup = BeautifulSoup(searchResultPage, 'html.parser').find('table', {'id':'searchResult'})
 		if soup:
@@ -241,7 +242,9 @@ if __name__ == '__main__':
 		queryDict = {'q' : args.query}
 		if args.extra:
 			queryDict[args.extra] = 'on'
-		queryDict['page'] = args.page
+		queryDict['page'] = 0
+		if args.page:
+			queryDict['page'] = args.page
 		queryDict['orderby'] = 99
  
 		print("[+] Searching for " + args.query)
