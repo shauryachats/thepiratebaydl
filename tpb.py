@@ -44,7 +44,7 @@ def downloadProxyList():
 	proxysite = requests.get(PROXYLIST_URL).text
 	soup = BeautifulSoup(proxysite, "html.parser")
 	soup = soup.find('table', {'class' : 'proxies'}).tbody
-	proxylist = [tr.td.a['href'] for tr in soup.findAll('tr')]
+	proxylist = [tr.td['data-href'] for tr in soup.findAll('tr')]
 	return proxylist
 
 def getProxyList(expiry_time = 8640000, file_path='~'):
