@@ -19,6 +19,7 @@ from multiprocessing import Pool
 import itertools
 import struct
 import urllib
+import datetime
 
 import threading
 import queue
@@ -54,7 +55,7 @@ class TPB(object):
     # Timeout to tpb pages request.
     tpb_request_timeout = 10
 
-    MAGNET_SYNTAX_HEADER = "magnet:?"
+    MAGNET_SYNTAX_HEADER = "magnet:?xt=urn:btih:"
     list_of_trackers = [
         'udp://tracker.coppersurfer.tk:6969/announce',
         'udp://9.rarbg.me:2850/announce',
@@ -108,7 +109,7 @@ class TPB(object):
         print("Hello!")
         if proxies is None:
             proxies = self.get_proxies()
-
+        print(proxies)
         # This version is easier, just an API call.
         for proxy in proxies:
             try:
@@ -117,6 +118,11 @@ class TPB(object):
                     "q": search_query,
                 }
                 search_results = requests.get(search_results_url, params=search_payload, headers=self.headers, timeout=self.tpb_request_timeout).json()
+                # Construct magnet links.
+                for index, result in enumerate(search_results):
+                    search_results[index]['magnet'] = self.construct_magnet(result['info_hash'], result['name'])
+                    search_results[index]['size'] = sizeof_fmt(result['size'])
+                    search_results[index]['added'] = datetime.datetime.fromtimestamp(int(result['added'])).strftime('%Y-%m-%d')
                 return search_results
             except Exception as e:
                 print("Exception occured, retrying...", e)
@@ -130,7 +136,7 @@ class TPB(object):
         print("[+] Queries fetched : ")
         for index, torrent in enumerate(search_results):
             # print(f"{torrent['name']}")
-            print("%s %s S:%s L:%s Size:%s" %  ((str(index)+'.').ljust(3), torrent['name'][:TSIZE].ljust(TSIZE), torrent['seeders'].ljust(5), torrent['leechers'].ljust(5), sizeof_fmt(torrent['size']).ljust(15)))
+            print("%s %s S:%s L:%s Size:%s" %  ((str(index)+'.').ljust(3), torrent['name'][:TSIZE].ljust(TSIZE), torrent['seeders'].ljust(5), torrent['leechers'].ljust(5), torrent['size'].ljust(15)))
             
         choice_input = input("Choose the range which you want to download : ")
 
@@ -140,19 +146,18 @@ class TPB(object):
 
     def construct_magnet(self, info_hash, name=None):
         params = {
-            "xt": "urn:btih:" + info_hash,
             "tr": self.list_of_trackers
         }
         if name is not None:
             params['dn'] = name
-        return self.MAGNET_SYNTAX_HEADER + urllib.parse.urlencode(params, doseq=True)
+        return self.MAGNET_SYNTAX_HEADER + info_hash + '&' + urllib.parse.urlencode(params, doseq=True)
 
 
     def get_magnets(self, choices):
         """
         Extract magnets from choices.
         """
-        return [ self.construct_magnet(choice['info_hash'], choice['name']) for choice in choices ]
+        return [ choice['magnet'] for choice in choices ]
 
 
     def build_info_hash(self, ariafile):
